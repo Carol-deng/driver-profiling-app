@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ app_title }}</title>
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --primary: #0f62fe;
+            --danger: #dc2626;
+            --warning: #d97706;
+            --success: #16a34a;
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            --radius: 18px;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            width: min(1450px, 94vw);
+            margin: 28px auto 50px;
+        }
+
+        .title-block h1 {
+            margin: 0;
+            font-size: 30px;
+        }
+
+        .title-block p {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .filter-bar, .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .filter-bar {
+            padding: 16px 18px;
+            margin: 20px 0 22px;
+        }
+
+        .filter-form {
+            display: flex;
+            gap: 14px;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .field label {
+            font-size: 13px;
+            color: var(--muted);
+            font-weight: bold;
+        }
+
+        select, input[type="text"] {
+            height: 42px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 0 12px;
+            background: #fff;
+            font-size: 14px;
+            min-width: 210px;
+        }
+
+        .btn {
+            height: 42px;
+            border: none;
+            background: var(--primary);
+            color: #fff;
+            padding: 0 18px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .section-title {
+            margin: 28px 0 14px;
+            font-size: 22px;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .card { padding: 18px; }
+
+        .metric-card .label {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .metric-card .value {
+            font-size: 30px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .metric-card .subtext {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .high { color: var(--danger); }
+        .medium { color: var(--warning); }
+        .low { color: var(--success); }
+
+        .two-col-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            align-items: stretch;
+            margin-bottom: 16px;
+        }
+
+        .card-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .card h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .tiny-note {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .segmented {
+            display: inline-flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .segmented a {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: bold;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 0 12px;
+            background: #fff;
+        }
+
+        .segmented a.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .delta-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .delta-item {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            background: #fbfcff;
+        }
+
+        .delta-name {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .delta-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .delta-up { color: var(--danger); }
+        .delta-down { color: var(--success); }
+        .delta-flat { color: #374151; }
+
+        .toggle-btn {
+            display: inline-block;
+            margin-top: 20px;
+            text-decoration: none;
+            background: #111827;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+
+        .subsection { margin-top: 18px; }
+        .chart-box { min-height: 360px; }
+
+        .analysis-filter-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .table-wrap { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th, td {
+            border-bottom: 1px solid var(--border);
+            padding: 12px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: #f9fafb;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .profile-cell {
+            line-height: 1.55;
+            min-width: 210px;
+        }
+
+        .action-link {
+            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 10px;
+            text-decoration: none;
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .empty-state {
+            padding: 30px;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        @media (max-width: 1100px) {
+            .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .two-col-grid { grid-template-columns: 1fr; }
+            .analysis-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 680px) {
+            .metric-grid { grid-template-columns: 1fr; }
+            .delta-list { grid-template-columns: 1fr; }
+            .analysis-filter-grid { grid-template-columns: 1fr; }
+            select, input[type="text"] { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title-block">
+            <h1>{{ app_title }}</h1>
+            <p>Homepage prototype based on driver profiling output for selected week analysis.</p>
+        </div>
+
+        <div class="filter-bar">
+            <form method="get" class="filter-form">
+                <div class="field">
+                    <label for="week">Week to analyze</label>
+                    <select name="week" id="week">
+                        {% for wk in week_options %}
+                            <option value="{{ wk }}" {% if wk == selected_week %}selected{% endif %}>{{ wk }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="btn" type="submit">Apply</button>
+            </form>
+        </div>
+
+        <h2 class="section-title">Overview</h2>
+
+        <div class="metric-grid">
+            <div class="card metric-card">
+                <div class="label">Total # of Driver Analyzed</div>
+                <div class="value">{{ overview_metrics.total }}</div>
+                <div class="subtext">Unique driverId in {{ selected_week }}</div>
+            </div>
+            <div class="card metric-card">
+                <div class="label">High Risk Driver</div>
+                <div class="value high">{{ overview_metrics.high_count }}</div>
+                <div class="subtext">{{ overview_metrics.high_pct }} of total</div>
+            </div>
+            <div class="card metric-card">
+                <div class="label">Medium Risk Driver</div>
+                <div class="value medium">{{ overview_metrics.medium_count }}</div>
+                <div class="subtext">{{ overview_metrics.medium_pct }} of total</div>
+            </div>
+            <div class="card metric-card">
+                <div class="label">Low Risk Driver</div>
+                <div class="value low">{{ overview_metrics.low_count }}</div>
+                <div class="subtext">{{ overview_metrics.low_pct }} of total</div>
+            </div>
+        </div>
+
+        <div class="two-col-grid">
+            <div class="card">
+                <div class="card-title-row">
+                    <h3>Risk Distribution</h3>
+                    <span class="tiny-note">Based on final risk group</span>
+                </div>
+                <div class="chart-box">{{ pie_chart|safe }}</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title-row">
+                    <h3>Comparison against Previous Week</h3>
+                    <span class="tiny-note">Average violation counts delta</span>
+                </div>
+                {% if comparison_available %}
+                    <div class="delta-list">
+                        {% for item in comparison_items %}
+                            <div class="delta-item">
+                                <div class="delta-name">{{ item.name }}</div>
+                                <div class="delta-value {{ item.css_class }}">{{ item.arrow }} {{ item.delta }}</div>
+                                <div class="tiny-note">Current: {{ item.current }} | Previous: {{ item.previous }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">No previous week available for comparison.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="two-col-grid">
+            <div class="card">
+                <div class="card-title-row">
+                    <h3>Average Telematics Violation Counts by Event</h3>
+                    <div class="segmented">
+                        <a class="{% if avg_mode == 'total' %}active{% endif %}" href="/?week={{ selected_week }}&avg_mode=total&tm_mode={{ tm_mode }}&show_tm={{ show_tm_flag }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}">Total Count</a>
+                        <a class="{% if avg_mode == 'unit' %}active{% endif %}" href="/?week={{ selected_week }}&avg_mode=unit&tm_mode={{ tm_mode }}&show_tm={{ show_tm_flag }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}">Count / Task Days</a>
+                    </div>
+                </div>
+                <div class="chart-box">{{ avg_violation_chart|safe }}</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title-row">
+                    <h3>Driver Counts by Violation Importance</h3>
+                    <span class="tiny-note"># of drivers with count &gt; 0</span>
+                </div>
+                <div class="chart-box">{{ importance_chart|safe }}</div>
+            </div>
+        </div>
+
+        <a class="toggle-btn" href="/?week={{ selected_week }}&avg_mode={{ avg_mode }}&tm_mode={{ tm_mode }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}&show_tm={% if show_tm_flag == '1' %}0{% else %}1{% endif %}">
+            {% if show_tm_flag == '1' %}
+                Hide telematics risk profile overview
+            {% else %}
+                Show telematics risk profile overview
+            {% endif %}
+        </a>
+
+        {% if show_tm_flag == '1' %}
+        <div class="subsection">
+            <h2 class="section-title">Telematics Risk Profile Overview</h2>
+
+            <div class="metric-grid">
+                <div class="card metric-card">
+                    <div class="label">Total # of Driver Analyzed</div>
+                    <div class="value">{{ tm_metrics.total }}</div>
+                    <div class="subtext">Only rows with has_original_risk_group = True</div>
+                </div>
+                <div class="card metric-card">
+                    <div class="label">High Risk Driver</div>
+                    <div class="value high">{{ tm_metrics.high_count }}</div>
+                    <div class="subtext">{{ tm_metrics.high_pct }} of total</div>
+                </div>
+                <div class="card metric-card">
+                    <div class="label">Medium Risk Driver</div>
+                    <div class="value medium">{{ tm_metrics.medium_count }}</div>
+                    <div class="subtext">{{ tm_metrics.medium_pct }} of total</div>
+                </div>
+                <div class="card metric-card">
+                    <div class="label">Low Risk Driver</div>
+                    <div class="value low">{{ tm_metrics.low_count }}</div>
+                    <div class="subtext">{{ tm_metrics.low_pct }} of total</div>
+                </div>
+            </div>
+
+            <div class="two-col-grid">
+                <div class="card">
+                    <div class="card-title-row">
+                        <h3>Score Histogram</h3>
+                        <span class="tiny-note">model_risk_score</span>
+                    </div>
+                    <div class="chart-box">{{ score_histogram|safe }}</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title-row">
+                        <h3>Avg Violation Count across H/M/L Risk</h3>
+                        <div class="segmented">
+                            <a class="{% if tm_mode == 'total' %}active{% endif %}" href="/?week={{ selected_week }}&avg_mode={{ avg_mode }}&tm_mode=total&show_tm={{ show_tm_flag }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}">Total Count</a>
+                            <a class="{% if tm_mode == 'unit' %}active{% endif %}" href="/?week={{ selected_week }}&avg_mode={{ avg_mode }}&tm_mode=unit&show_tm={{ show_tm_flag }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}">Count / Task Days</a>
+                        </div>
+                    </div>
+                    <div class="chart-box">{{ tm_group_chart|safe }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="subsection">
+            <h2 class="section-title">Risk Score Analysis</h2>
+
+            <div class="card">
+                <div class="card-title-row">
+                    <h3>Filters</h3>
+                    <span class="tiny-note">Filter by risk group, video violation and driverId</span>
+                </div>
+
+                <form method="get">
+                    <input type="hidden" name="week" value="{{ selected_week }}" />
+                    <input type="hidden" name="show_tm" value="{{ show_tm_flag }}" />
+                    <input type="hidden" name="avg_mode" value="{{ avg_mode }}" />
+                    <input type="hidden" name="tm_mode" value="{{ tm_mode }}" />
+                    <input type="hidden" name="peer_mode" value="{{ peer_mode }}" />
+
+                    <div class="analysis-filter-grid">
+                        <div class="field">
+                            <label for="final_risk_filter">Filter by final risk group</label>
+                            <select name="final_risk_filter" id="final_risk_filter">
+                                <option value="All" {% if final_risk_filter == 'All' %}selected{% endif %}>All</option>
+                                <option value="High Risk" {% if final_risk_filter == 'High Risk' %}selected{% endif %}>High Risk</option>
+                                <option value="Medium Risk" {% if final_risk_filter == 'Medium Risk' %}selected{% endif %}>Medium Risk</option>
+                                <option value="Low Risk" {% if final_risk_filter == 'Low Risk' %}selected{% endif %}>Low Risk</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="original_risk_filter">Filter by original risk group</label>
+                            <select name="original_risk_filter" id="original_risk_filter">
+                                <option value="All" {% if original_risk_filter == 'All' %}selected{% endif %}>All</option>
+                                <option value="High Risk" {% if original_risk_filter == 'High Risk' %}selected{% endif %}>High Risk</option>
+                                <option value="Medium Risk" {% if original_risk_filter == 'Medium Risk' %}selected{% endif %}>Medium Risk</option>
+                                <option value="Low Risk" {% if original_risk_filter == 'Low Risk' %}selected{% endif %}>Low Risk</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="video_filter">Filter by whether exist video violation count</label>
+                            <select name="video_filter" id="video_filter">
+                                <option value="all" {% if video_filter == 'all' %}selected{% endif %}>All</option>
+                                <option value="yes" {% if video_filter == 'yes' %}selected{% endif %}>Yes</option>
+                                <option value="no" {% if video_filter == 'no' %}selected{% endif %}>No</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="search_driver">Search driverId</label>
+                            <input type="text" id="search_driver" name="search_driver" value="{{ search_driver }}" placeholder="Enter driverId" />
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 14px;">
+                        <button class="btn" type="submit">Apply Filters</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card" style="margin-top: 16px;">
+                <div class="card-title-row">
+                    <h3>Details</h3>
+                    <span class="tiny-note">{{ detail_count }} row(s)</span>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>driverId</th>
+                                <th>unitId</th>
+                                <th>role</th>
+                                <th>Telematics Risk Profile</th>
+                                <th>Video Risk Profile</th>
+                                <th>Final Risk Group</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if detail_rows %}
+                                {% for row in detail_rows %}
+                                <tr>
+                                    <td>{{ row.rank }}</td>
+                                    <td>{{ row.driverId }}</td>
+                                    <td>{{ row.unitId }}</td>
+                                    <td>{{ row.role }}</td>
+                                    <td class="profile-cell">{{ row.telematics_profile|safe }}</td>
+                                    <td class="profile-cell">{{ row.video_profile|safe }}</td>
+                                    <td>{{ row.final_risk_group }}</td>
+                                    <td><a class="action-link" href="{{ row.action_link }}">More Details</a></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="8" class="empty-state">No records matched the current filters.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

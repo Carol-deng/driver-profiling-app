@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Individual Risk Assessment Report</title>
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --primary: #0f62fe;
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            --radius: 18px;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            width: min(1450px, 94vw);
+            margin: 28px auto 50px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 18px;
+        }
+
+        .title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+
+        h1, h2, h3 {
+            margin: 0;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .section-title {
+            margin: 28px 0 14px;
+            font-size: 22px;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .two-col-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        .three-col-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .label {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .small {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 6px;
+        }
+
+        .toggle-group {
+            display: inline-flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .toggle-group a {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: bold;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 0 12px;
+            background: #fff;
+        }
+
+        .toggle-group a.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th, td {
+            border-bottom: 1px solid var(--border);
+            padding: 12px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: #f9fafb;
+            font-size: 13px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        .info-table td:first-child {
+            font-weight: bold;
+            width: 240px;
+            background: #fafafa;
+        }
+
+        .good-block {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 16px;
+            border-radius: 14px;
+            line-height: 1.6;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 14px;
+            text-decoration: none;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        @media (max-width: 1100px) {
+            .metric-grid, .two-col-grid, .three-col-grid, .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title-row">
+            <div>
+                <h1>Individual Risk Assessment Report</h1>
+                <div class="muted">Driver {{ driver_id }} | Week {{ selected_week }}</div>
+            </div>
+            <div>
+                <a class="back-link" href="/?week={{ selected_week }}">← Back to Homepage</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title" style="margin-top:0;">Driver Information</h2>
+            <div class="table-wrap">
+                <table class="info-table">
+                    <tbody>
+                        <tr><td>driverId</td><td>{{ weekly_info.driverId }}</td></tr>
+                        <tr><td>unitId</td><td>{{ weekly_info.unitId }}</td></tr>
+                        <tr><td>Role</td><td>{{ weekly_info.role }}</td></tr>
+                        <tr><td>Hard Braking</td><td>{{ weekly_info.hard_braking }}</td></tr>
+                        <tr><td>Rapid Acceleration</td><td>{{ weekly_info.rapid_acc }}</td></tr>
+                        <tr><td>Speeding</td><td>{{ weekly_info.speeding }}</td></tr>
+                        <tr><td>No Go Zone</td><td>{{ weekly_info.no_go_zone }}</td></tr>
+                        <tr><td>Task Days</td><td>{{ weekly_info.task_days }}</td></tr>
+                        <tr><td>Telematics Risk Score</td><td>{{ weekly_info.telematics_score }}</td></tr>
+                        <tr><td>Telematics Risk Group</td><td>{{ weekly_info.telematics_group }}</td></tr>
+                        <tr>
+                            <td>Emphasized Count</td>
+                            <td>
+                                {{ weekly_info.emphasized_count }}
+                                {% if weekly_info.emphasized_count > 0 %}
+                                    <br><span class="muted">{{ weekly_info.emphasized_breakdown|safe }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Less Important Count</td>
+                            <td>
+                                {{ weekly_info.less_important_count }}
+                                {% if weekly_info.less_important_count > 0 %}
+                                    <br><span class="muted">{{ weekly_info.less_important_breakdown|safe }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr><td>Final Risk Group</td><td>{{ weekly_info.final_risk_group }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <h2 class="section-title">Summary Cards</h2>
+        <div class="three-col-grid">
+            <div class="card">
+                <div class="label">Total Violation Count</div>
+                <div class="value">{{ total_violation_count }}</div>
+                <div class="small">Telematics: {{ telematics_total }} | Video: {{ video_total }}</div>
+            </div>
+            <div class="card">
+                <div class="label">Task Days</div>
+                <div class="value">{{ task_days }}</div>
+            </div>
+            <div class="card">
+                <div class="label">Final Risk Group</div>
+                <div class="value">{{ weekly_info.final_risk_group }}</div>
+            </div>
+        </div>
+
+        <div class="title-row" style="margin-bottom: 10px;">
+            <h2 class="section-title" style="margin:0;">Peer Comparison & Areas of Improvement</h2>
+            <div class="toggle-group">
+                <a class="{% if peer_mode == 'total' %}active{% endif %}" href="/driver/{{ driver_id }}?week={{ selected_week }}&peer_mode=total">Total Count</a>
+                <a class="{% if peer_mode == 'unit' %}active{% endif %}" href="/driver/{{ driver_id }}?week={{ selected_week }}&peer_mode=unit">Count / Task Days</a>
+            </div>
+        </div>
+
+        <div class="two-col-grid">
+            <div class="card">
+                <h3 style="margin-bottom:14px;">Comparison against Peers</h3>
+                <div class="charts-grid">
+                    {% for chart in peer_charts %}
+                        <div>{{ chart|safe }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:14px;">Area of Improvement</h3>
+
+                <h4 style="margin: 0 0 10px 0;">Telematics</h4>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Metrics</th>
+                                <th>Individual {{ "Count / Task Days" if peer_mode == "unit" else "Count" }}</th>
+                                <th>Avg of All Drivers</th>
+                                <th>50th Percentile</th>
+                                <th>Improvement Suggestion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in telematics_improvement_rows %}
+                            <tr>
+                                <td>{{ row.metric }}</td>
+                                <td>{{ row.individual }}</td>
+                                <td>{{ row.avg }}</td>
+                                <td>{{ row.p50 }}</td>
+                                <td>{{ row.suggestion }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4 style="margin: 20px 0 10px 0;">Video Violation</h4>
+                {% if video_improvement_rows %}
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Metrics</th>
+                                    <th>Importance Level</th>
+                                    <th>Individual Count</th>
+                                    <th>Ideal Count</th>
+                                    <th>Improvement Suggestion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in video_improvement_rows %}
+                                <tr>
+                                    <td>{{ row.metric }}</td>
+                                    <td>{{ row.importance }}</td>
+                                    <td>{{ row.individual }}</td>
+                                    <td>{{ row.ideal }}</td>
+                                    <td>{{ row.suggestion }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="good-block">
+                        No video violation was detected for this driver in the selected week. Great job.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
