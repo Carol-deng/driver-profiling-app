@@ -211,20 +211,11 @@
                         <tr><td>Telematics Risk Score</td><td>{{ weekly_info.telematics_score }}</td></tr>
                         <tr><td>Telematics Risk Group</td><td>{{ weekly_info.telematics_group }}</td></tr>
                         <tr>
-                            <td>Emphasized Count</td>
+                            <td>Video Violation Count</td>
                             <td>
-                                {{ weekly_info.emphasized_count }}
-                                {% if weekly_info.emphasized_count > 0 %}
-                                    <br><span class="muted">{{ weekly_info.emphasized_breakdown|safe }}</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Less Important Count</td>
-                            <td>
-                                {{ weekly_info.less_important_count }}
-                                {% if weekly_info.less_important_count > 0 %}
-                                    <br><span class="muted">{{ weekly_info.less_important_breakdown|safe }}</span>
+                                {{ weekly_info.video_violation_count }}
+                                {% if weekly_info.video_violation_count > 0 %}
+                                    <br><span class="muted">{{ weekly_info.video_breakdown|safe }}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -255,7 +246,7 @@
             <h2 class="section-title" style="margin:0;">Peer Comparison & Areas of Improvement</h2>
             <div class="toggle-group">
                 <a class="{% if peer_mode == 'total' %}active{% endif %}" href="/driver/{{ driver_id }}?week={{ selected_week }}&peer_mode=total">Total Count</a>
-                <a class="{% if peer_mode == 'unit' %}active{% endif %}" href="/driver/{{ driver_id }}?week={{ selected_week }}&peer_mode=unit">Count / Task Days</a>
+                <a class="{% if peer_mode == 'unit' %}active{% endif %}" href="/driver/{{ driver_id }}?week={{ selected_week }}&peer_mode=unit">Normalization Count</a>
             </div>
         </div>
 
@@ -280,7 +271,9 @@
                                 <th>Metrics</th>
                                 <th>Individual {{ "Count / Task Days" if peer_mode == "unit" else "Count" }}</th>
                                 <th>Avg of All Drivers</th>
+                                <th>25th Percentile</th>
                                 <th>50th Percentile</th>
+                                <th>75th Percentile</th>
                                 <th>Improvement Suggestion</th>
                             </tr>
                         </thead>
@@ -290,7 +283,9 @@
                                 <td>{{ row.metric }}</td>
                                 <td>{{ row.individual }}</td>
                                 <td>{{ row.avg }}</td>
+                                <td>{{ row.p25 }}</td>
                                 <td>{{ row.p50 }}</td>
+                                <td>{{ row.p75 }}</td>
                                 <td>{{ row.suggestion }}</td>
                             </tr>
                             {% endfor %}
@@ -330,6 +325,18 @@
                     </div>
                 {% endif %}
             </div>
+        </div>
+        <div>
+            <h2 class="section-title">Daily Violation Trend</h2>
+                <div class="card">
+                    <h3 style="margin-bottom:14px;">Telematics</h3>
+                    <div>{{ daily_telematics_chart|safe }}</div>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-bottom:14px;">Video Violation</h3>
+                    <div>{{ daily_video_chart|safe }}</div>
+                </div>
         </div>
     </div>
 </body>

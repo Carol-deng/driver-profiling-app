@@ -102,12 +102,15 @@
 
         .metric-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 16px;
             margin-bottom: 18px;
         }
 
-        .card { padding: 18px; }
+        .card { 
+            padding: 18px; 
+            height: 100%
+        }
 
         .metric-card .label {
             color: var(--muted);
@@ -301,6 +304,19 @@
 
         <div class="filter-bar">
             <form method="get" class="filter-form">
+
+                <!-- ⭐ 新增：Reporting Level 按钮 -->
+                <div class="field" style="width: 100%;">
+                    <label>Reporting Level</label>
+                    <div class="segmented">
+                        <a class="active" href="javascript:void(0)">Week</a>
+                        <a href="javascript:void(0)">Month</a>
+                        <a href="javascript:void(0)">Quarter</a>
+                        <a href="javascript:void(0)">Year</a>
+                    </div>
+                </div>
+
+                <!-- ⭐ 原有 week filter（不动） -->
                 <div class="field">
                     <label for="week">Week to analyze</label>
                     <select name="week" id="week">
@@ -309,32 +325,55 @@
                         {% endfor %}
                     </select>
                 </div>
+
                 <button class="btn" type="submit">Apply</button>
             </form>
         </div>
 
         <h2 class="section-title">Overview</h2>
 
-        <div class="metric-grid">
-            <div class="card metric-card">
-                <div class="label">Total # of Driver Analyzed</div>
-                <div class="value">{{ overview_metrics.total }}</div>
-                <div class="subtext">Unique driverId in {{ selected_week }}</div>
+        <div class="two-col-grid">
+            <div class="metric-grid">
+                <div class="card metric-card">
+                    <div class="label">Total # of Driver Analyzed</div>
+                    <div class="value">{{ overview_metrics.total }}</div>
+                    <div class="subtext">Unique driverId in {{ selected_week }}</div>
+                </div>
+                <div class="card metric-card">
+                    <div class="label">High Risk Driver</div>
+                    <div class="value high">{{ overview_metrics.high_count }}</div>
+                    <div class="subtext">{{ overview_metrics.high_pct }} of total</div>
+                </div>
+                <div class="card metric-card">
+                    <div class="label">Medium Risk Driver</div>
+                    <div class="value medium">{{ overview_metrics.medium_count }}</div>
+                    <div class="subtext">{{ overview_metrics.medium_pct }} of total</div>
+                </div>
+                <div class="card metric-card">
+                    <div class="label">Low Risk Driver</div>
+                    <div class="value low">{{ overview_metrics.low_count }}</div>
+                    <div class="subtext">{{ overview_metrics.low_pct }} of total</div>
+                </div>
             </div>
-            <div class="card metric-card">
-                <div class="label">High Risk Driver</div>
-                <div class="value high">{{ overview_metrics.high_count }}</div>
-                <div class="subtext">{{ overview_metrics.high_pct }} of total</div>
-            </div>
-            <div class="card metric-card">
-                <div class="label">Medium Risk Driver</div>
-                <div class="value medium">{{ overview_metrics.medium_count }}</div>
-                <div class="subtext">{{ overview_metrics.medium_pct }} of total</div>
-            </div>
-            <div class="card metric-card">
-                <div class="label">Low Risk Driver</div>
-                <div class="value low">{{ overview_metrics.low_count }}</div>
-                <div class="subtext">{{ overview_metrics.low_pct }} of total</div>
+
+            <div class="card">
+                <div class="card-title-row">
+                    <h3>Comparison against Previous Week</h3>
+                    <span class="tiny-note">Average violation counts delta</span>
+                </div>
+                {% if comparison_available %}
+                    <div class="delta-list">
+                        {% for item in comparison_items %}
+                            <div class="delta-item">
+                                <div class="delta-name">{{ item.name }}</div>
+                                <div class="delta-value {{ item.css_class }}">{{ item.arrow }} {{ item.delta }}</div>
+                                <div class="tiny-note">Current Week: {{ item.current }} | Previous Week: {{ item.previous }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">No previous week available for comparison.</div>
+                {% endif %}
             </div>
         </div>
 
@@ -349,55 +388,35 @@
 
             <div class="card">
                 <div class="card-title-row">
-                    <h3>Comparison against Previous Week</h3>
-                    <span class="tiny-note">Average violation counts delta</span>
-                </div>
-                {% if comparison_available %}
-                    <div class="delta-list">
-                        {% for item in comparison_items %}
-                            <div class="delta-item">
-                                <div class="delta-name">{{ item.name }}</div>
-                                <div class="delta-value {{ item.css_class }}">{{ item.arrow }} {{ item.delta }}</div>
-                                <div class="tiny-note">Current: {{ item.current }} | Previous: {{ item.previous }}</div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <div class="empty-state">No previous week available for comparison.</div>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="two-col-grid">
-            <div class="card">
-                <div class="card-title-row">
                     <h3>Average Telematics Violation Counts by Event</h3>
                     <div class="segmented">
                         <a class="{% if avg_mode == 'total' %}active{% endif %}" href="/?week={{ selected_week }}&avg_mode=total&tm_mode={{ tm_mode }}&show_tm={{ show_tm_flag }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}">Total Count</a>
-                        <a class="{% if avg_mode == 'unit' %}active{% endif %}" href="/?week={{ selected_week }}&avg_mode=unit&tm_mode={{ tm_mode }}&show_tm={{ show_tm_flag }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}">Count / Task Days</a>
+                        <a class="{% if avg_mode == 'unit' %}active{% endif %}" href="/?week={{ selected_week }}&avg_mode=unit&tm_mode={{ tm_mode }}&show_tm={{ show_tm_flag }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}">Normalization Count</a>
                     </div>
                 </div>
                 <div class="chart-box">{{ avg_violation_chart|safe }}</div>
             </div>
 
-            <div class="card">
-                <div class="card-title-row">
-                    <h3>Driver Counts by Violation Importance</h3>
-                    <span class="tiny-note"># of drivers with count &gt; 0</span>
-                </div>
-                <div class="chart-box">{{ importance_chart|safe }}</div>
-            </div>
         </div>
 
-        <a class="toggle-btn" href="/?week={{ selected_week }}&avg_mode={{ avg_mode }}&tm_mode={{ tm_mode }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}&show_tm={% if show_tm_flag == '1' %}0{% else %}1{% endif %}">
+
+        <div class="card">
+            <div class="card-title-row">
+                <h3>Driver Counts by Violation Importance</h3>
+                <span class="tiny-note"># of drivers with count &gt; 0</span>
+            </div>
+            <div class="chart-box">{{ importance_chart|safe }}</div>
+        </div>
+
+        <!-- <a class="toggle-btn" href="/?week={{ selected_week }}&avg_mode={{ avg_mode }}&tm_mode={{ tm_mode }}&final_risk_filter={{ final_risk_filter }}&original_risk_filter={{ original_risk_filter }}&video_filter={{ video_filter }}&search_driver={{ search_driver }}&peer_mode={{ peer_mode }}&show_tm={% if show_tm_flag == '1' %}0{% else %}1{% endif %}">
             {% if show_tm_flag == '1' %}
                 Hide telematics risk profile overview
             {% else %}
                 Show telematics risk profile overview
             {% endif %}
-        </a>
+        </a> -->
 
-        {% if show_tm_flag == '1' %}
+        <!-- {% if show_tm_flag == '1' %}
         <div class="subsection">
             <h2 class="section-title">Telematics Risk Profile Overview</h2>
 
@@ -445,7 +464,7 @@
                 </div>
             </div>
         </div>
-        {% endif %}
+        {% endif %} -->
 
         <div class="subsection">
             <h2 class="section-title">Risk Score Analysis</h2>

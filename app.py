@@ -11,7 +11,7 @@ from flask import Flask, abort, render_template, request
 
 app = Flask(__name__)
 
-OUTPUT_CSV_PATH = Path("phase3_proposal1_AdditionalRules_final_riskprofile_16 Mar 2026.csv")
+OUTPUT_CSV_PATH = Path("phase3_proposal1_AdditionalRules_final_riskprofile_14 Apr 2026.csv")
 DAILY_COUNT_CSV_PATH = Path("daily_track_count_cleaned.csv")
 APP_TITLE = "SAF Driver Profiling - Strides Digital"
 
@@ -21,9 +21,9 @@ RISK_RANK_MAP = {"High Risk": 0, "Medium Risk": 1, "Low Risk": 2}
 FINAL_RISK_COL = "final_model_grp"
 ORIGINAL_RISK_COL = "model_grp_bef12"
 WEEK_COL = "weekNo"
-YEAR_COL = "yearNo"
-MONTH_COL = "monthNo"
-QUARTER_COL = "quarterNo"
+# YEAR_COL = "yearNo"
+# MONTH_COL = "monthNo"
+# QUARTER_COL = "quarterNo"
 DRIVER_COL = "driverId"
 SCORE_COL = "model_risk_score"
 TASK_DAYS_COL = "task_days"
@@ -76,9 +76,9 @@ def load_output_data(csv_path: Path) -> pd.DataFrame:
 
     required_cols = [
         WEEK_COL,
-        YEAR_COL,
-        MONTH_COL,
-        QUARTER_COL,
+        # YEAR_COL,
+        # MONTH_COL,
+        # QUARTER_COL,
         DRIVER_COL,
         FINAL_RISK_COL,
         ORIGINAL_RISK_COL,
@@ -115,9 +115,9 @@ def load_output_data(csv_path: Path) -> pd.DataFrame:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     df[WEEK_COL] = df[WEEK_COL].astype(str)
-    df[YEAR_COL] = df[YEAR_COL].astype(int)
-    df[MONTH_COL] = df[MONTH_COL].astype(int)
-    df[QUARTER_COL] = df[QUARTER_COL].astype(int)
+    # df[YEAR_COL] = df[YEAR_COL].astype(int)
+    # df[MONTH_COL] = df[MONTH_COL].astype(int)
+    # df[QUARTER_COL] = df[QUARTER_COL].astype(int)
     # df[FINAL_RISK_COL] = normalize_risk_group(df[FINAL_RISK_COL])
     # df[ORIGINAL_RISK_COL] = normalize_risk_group(df[ORIGINAL_RISK_COL])
     df[ORIGINAL_RISK_FLAG_COL] = normalize_bool(df[ORIGINAL_RISK_FLAG_COL])
@@ -173,13 +173,8 @@ def normalize_bool(series: pd.Series) -> pd.Series:
 #     }
 #     return s.replace(replace_map)
 
-def get_period_options(df: pd.DataFrame) -> Dict[str, List[Any]]:
-    return {
-        "years": sorted(df[YEAR_COL].dropna().astype(int).unique().tolist()),
-        "quarters": sorted(df[QUARTER_COL].dropna().astype(int).unique().tolist()),
-        "months": sorted(df[MONTH_COL].dropna().astype(int).unique().tolist()),
-        "weeks": sorted(df[WEEK_COL].dropna().astype(str).unique().tolist()),
-    }
+def get_week_options(df: pd.DataFrame) -> list[str]:
+    return sorted(df[WEEK_COL].dropna().astype(str).unique().tolist())
 
 
 def pct_str(n: int, total: int) -> str:
@@ -188,28 +183,8 @@ def pct_str(n: int, total: int) -> str:
     return f"{n / total:.1%}"
 
 
-def filter_by_period(
-    df: pd.DataFrame,
-    year_value: str,
-    quarter_value: str,
-    month_value: str,
-    week_value: str,
-) -> pd.DataFrame:
-    filtered = df.copy()
-
-    if year_value != "All":
-        filtered = filtered[filtered[YEAR_COL] == int(year_value)]
-
-    if quarter_value != "All":
-        filtered = filtered[filtered[QUARTER_COL] == int(quarter_value)]
-
-    if month_value != "All":
-        filtered = filtered[filtered[MONTH_COL] == int(month_value)]
-
-    if week_value != "All":
-        filtered = filtered[filtered[WEEK_COL] == str(week_value)]
-
-    return filtered
+def filter_week(df: pd.DataFrame, week_value: str) -> pd.DataFrame:
+    return df.loc[df[WEEK_COL].astype(str) == str(week_value)].copy()
 
 # def filter_year(df: pd.DataFrame, year_value: str) -> pd.DataFrame:
 #     return df.loc[df[YEAR_COL] == str(year_value)].copy()
@@ -469,9 +444,9 @@ def format_video_breakdown_html(row: pd.Series, cols: List[str]) -> str:
     return "<br>".join(parts) if parts else "-"
 
 
-def get_driver_row(df: pd.DataFrame, driver_id: str, period: str) -> pd.Series:
-    df_period = filter_by_period(df, period)
-    matched = df_period[df_period[DRIVER_COL].astype(str) == str(driver_id)]
+def get_driver_row(df: pd.DataFrame, driver_id: str, week: str) -> pd.Series:
+    df_week = filter_week(df, week)
+    matched = df_week[df_week[DRIVER_COL].astype(str) == str(driver_id)]
     if matched.empty:
         abort(404, f"No record found for driverId={driver_id} in week={week}")
     return matched.iloc[0]
@@ -537,9 +512,22 @@ def get_telematics_suggestion(value: float, mean_val: float, p50: float, mode: s
 
     if value < baseline:
         return "Acceptable. You are doing well and should keep this performance."
+
     if value <= mild_threshold:
         return "Slight adjustment recommended next month."
-    return "There is significant room for improvement."
+
+    reduction_needed = max(0, int(value - mean_val))
+
+    if mode == "unit":
+        return (
+            "There is significant room for improvement. "
+            f"You should decrease violation count per task by about {reduction_needed} for better performance."
+        )
+
+    return (
+        "There is significant room for improvement. "
+        f"You should decrease how many violation counts by about {reduction_needed} for better performance."
+    )
 
 
 def build_telematics_improvement_table(df_week: pd.DataFrame, driver_row: pd.Series, mode: str) -> List[Dict[str, Any]]:
@@ -583,26 +571,141 @@ def build_video_improvement_table(driver_row: pd.Series) -> List[Dict[str, Any]]
             )
     return rows
 
+# Individual Trend Line Chart
+def load_daily_count_data(csv_path: Path) -> pd.DataFrame:
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"CSV file not found: {csv_path.resolve()}\n"
+            f"Please place the file in the same folder as app.py, or update DAILY_COUNT_CSV_PATH."
+        )
+
+    df = pd.read_csv(csv_path)
+
+    required_cols = [
+        DRIVER_COL,
+        "date",
+        WEEK_COL,
+        *VIOLATION_COLS,
+        *VIDEO_VIOLATIONS,
+    ]
+    missing = [col for col in required_cols if col not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns in daily count CSV: {missing}")
+
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df[WEEK_COL] = df[WEEK_COL].astype(str)
+
+    numeric_cols = [*VIOLATION_COLS, *VIDEO_VIOLATIONS]
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    return df
+
+def build_driver_daily_trend_charts(
+    daily_df: pd.DataFrame,
+    driver_id: str,
+    week_value: str,
+) -> Tuple[str, str]:
+    driver_daily = daily_df[
+        (daily_df[DRIVER_COL].astype(str) == str(driver_id)) &
+        (daily_df[WEEK_COL] == str(week_value))
+    ].copy()
+
+    if driver_daily.empty:
+        empty_dates = pd.date_range("2026-01-01", periods=7, freq="D")
+
+        telematics_df = pd.DataFrame({"date": empty_dates})
+        for col in VIOLATION_COLS:
+            telematics_df[col] = 0
+
+        video_df = pd.DataFrame({"date": empty_dates})
+        for col in VIDEO_VIOLATIONS:
+            video_df[col] = 0
+    else:
+        week_start = driver_daily["date"].min().normalize()
+        full_dates = pd.date_range(week_start, periods=7, freq="D")
+
+        telematics_raw = (
+            driver_daily[["date", *VIOLATION_COLS]]
+            .groupby("date", as_index=False)
+            .sum()
+        )
+
+        video_raw = (
+            driver_daily[["date", *VIDEO_VIOLATIONS]]
+            .groupby("date", as_index=False)
+            .sum()
+        )
+
+        telematics_df = pd.DataFrame({"date": full_dates})
+        telematics_df = telematics_df.merge(telematics_raw, on="date", how="left").fillna(0)
+
+        video_df = pd.DataFrame({"date": full_dates})
+        video_df = video_df.merge(video_raw, on="date", how="left").fillna(0)
+
+    telematics_fig = go.Figure()
+    for col in VIOLATION_COLS:
+        telematics_fig.add_trace(
+            go.Scatter(
+                x=telematics_df["date"],
+                y=telematics_df[col],
+                mode="lines+markers",
+                name=VIOLATION_LABELS[col],
+            )
+        )
+    telematics_fig.update_layout(
+        title="Daily Telematics Violation Trend",
+        xaxis_title="Date",
+        yaxis_title="Violation Count",
+        margin=dict(l=10, r=10, t=40, b=20),
+        height=360,
+        xaxis=dict(
+        tickformat="%b %d\n%a"  
+        )
+    )
+
+    video_fig = go.Figure()
+    for col in VIDEO_VIOLATIONS:
+        video_fig.add_trace(
+            go.Scatter(
+                x=video_df["date"],
+                y=video_df[col],
+                mode="lines+markers",
+                name=col,
+            )
+        )
+    video_fig.update_layout(
+        title="Daily Video Violation Trend",
+        xaxis_title="Date",
+        yaxis_title="Violation Count",
+        margin=dict(l=10, r=10, t=40, b=20),
+        height=420,
+        xaxis=dict(
+        tickformat="%b %d\n%a"  
+        )
+    )
+
+    return (
+        telematics_fig.to_html(full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False}),
+        video_fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False}),
+    )
 
 @app.route("/")
 def home():
     df = load_output_data(OUTPUT_CSV_PATH)
-    period_options = get_period_options(df)
-    if not period_options:
+    week_options = get_week_options(df)
+    if not week_options:
         return "No valid weekNo found in dataset."
     
-    selected_year = request.args.get("year", "All")
-    selected_quarter = request.args.get("quarter", "All")
-    selected_month = request.args.get("month", "All")
-    selected_week = request.args.get("week", "All")
+    # selected_year = request.args.get("year", "All")
+    # selected_quarter = request.args.get("quarter", "All")
+    # selected_month = request.args.get("month", "All")
+    selected_week = request.args.get("week", week_options[-1])
 
-    if (
-    selected_year == "All"
-    and selected_quarter == "All"
-    and selected_month == "All"
-    and selected_week == "All"
-    ):
-        selected_week = period_options["weeks"][-1] if period_options["weeks"] else "All"
+    if selected_week not in week_options:
+        selected_week = week_options[-1]
+
+    df_week = filter_week(df, selected_week)
     # selected_week = request.args.get("week", week_options[-1])
     # if selected_week not in week_options:
     #     selected_week = week_options[-1]
@@ -627,27 +730,27 @@ def home():
     if peer_mode not in {"total", "unit"}:
         peer_mode = "total"
 
-    df_period = filter_by_period(
-        df=df,
-        year_value=selected_year,
-        quarter_value=selected_quarter,
-        month_value=selected_month,
-        week_value=selected_week,
-    )
-    overview_metrics = calc_risk_metrics(df_period, FINAL_RISK_COL)
+    # df_period = filter_by_period(
+    #     df=df,
+    #     year_value=selected_year,
+    #     quarter_value=selected_quarter,
+    #     month_value=selected_month,
+    #     week_value=selected_week,
+    # )
+    overview_metrics = calc_risk_metrics(df_week, FINAL_RISK_COL)
 
     # tm_df_week = df_week[df_week[ORIGINAL_RISK_FLAG_COL] == True].copy()
     # tm_metrics = calc_risk_metrics(tm_df_week, ORIGINAL_RISK_COL)
 
-    prev_week = get_previous_week(period_options, selected_week)
+    prev_week = get_previous_week(week_options, selected_week)
     comparison_available = prev_week is not None
     comparison_items = []
     if comparison_available:
-        df_prev = filter_by_period(df, prev_week)
-        comparison_items = calc_week_comparison(df_period, df_prev)
+        df_prev = filter_week(df, prev_week)
+        comparison_items = calc_week_comparison(df_week, df_prev)
 
     filtered_risk_df = apply_risk_filters(
-        df_week=df_period,
+        df_week=df_week,
         final_risk_filter=final_risk_filter,
         original_risk_filter=original_risk_filter,
         video_filter=video_filter,
@@ -658,16 +761,16 @@ def home():
     return render_template(
         "index.html",
         app_title=APP_TITLE,
-        week_options=period_options,
+        week_options=week_options,
         selected_week=selected_week,
         # show_tm_flag=show_tm_flag,
         avg_mode=avg_mode,
         # tm_mode=tm_mode,
         overview_metrics=overview_metrics,
         # tm_metrics=tm_metrics,
-        pie_chart=make_pie_chart(df_period),
-        avg_violation_chart=make_avg_violation_chart(df_period, avg_mode),
-        importance_chart=make_importance_chart(df_period),
+        pie_chart=make_pie_chart(df_week),
+        avg_violation_chart=make_avg_violation_chart(df_week, avg_mode),
+        importance_chart=make_importance_chart(df_week),
         comparison_available=comparison_available,
         comparison_items=comparison_items,
         # score_histogram=make_score_histogram(tm_df_week),
@@ -685,37 +788,29 @@ def home():
 @app.route("/driver/<driver_id>")
 def driver_report(driver_id: str):
     df = load_output_data(OUTPUT_CSV_PATH)
-    period_options = get_period_options(df)
-    if not period_options:
+    daily_df = load_daily_count_data(DAILY_COUNT_CSV_PATH)
+    week_options = get_week_options(df)
+    if not week_options:
         return "No valid weekNo found in dataset."
     
-    selected_year = request.args.get("year", "All")
-    selected_quarter = request.args.get("quarter", "All")
-    selected_month = request.args.get("month", "All")
-    selected_week = request.args.get("week", "All")
+    selected_week = request.args.get("week", week_options[-1])
 
-    if (
-    selected_year == "All"
-    and selected_quarter == "All"
-    and selected_month == "All"
-    and selected_week == "All"
-    ):
-        selected_week = period_options["weeks"][-1] if period_options["weeks"] else "All"
+    if selected_week not in week_options:
+        selected_week = week_options[-1]
 
     peer_mode = request.args.get("peer_mode", "total")
     if peer_mode not in {"total", "unit"}:
         peer_mode = "total"
 
-    df_period = filter_by_period(
-        df=df,
-        year_value=selected_year,
-        quarter_value=selected_quarter,
-        month_value=selected_month,
-        week_value=selected_week
-    )
+    df_week = filter_week(df, selected_week)
     
     # df_week = filter_by_period(df, selected_week)
     driver_row = get_driver_row(df, driver_id, selected_week)
+    daily_telematics_chart, daily_video_chart = build_driver_daily_trend_charts(
+    daily_df=daily_df,
+    driver_id=driver_id,
+    week_value=selected_week,
+    )
 
     telematics_total = int(sum(driver_row.get(col, 0) for col in VIOLATION_COLS))
     video_total = int(driver_row.get(VIDEO_TOTAL_COL, 0))
@@ -758,6 +853,8 @@ def driver_report(driver_id: str):
         telematics_improvement_rows=telematics_improvement_rows,
         video_improvement_rows=video_improvement_rows,
         driver_id=driver_id,
+        daily_telematics_chart=daily_telematics_chart,
+        daily_video_chart=daily_video_chart,
     )
 
 
