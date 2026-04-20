@@ -11,7 +11,8 @@ from flask import Flask, abort, render_template, request
 
 app = Flask(__name__)
 
-CSV_PATH = Path("phase3_proposal1_AdditionalRules_final_riskprofile_16 Mar 2026.csv")
+OUTPUT_CSV_PATH = Path("phase3_proposal1_AdditionalRules_final_riskprofile_16 Mar 2026.csv")
+DAILY_COUNT_CSV_PATH = Path("daily_track_count_cleaned.csv")
 APP_TITLE = "SAF Driver Profiling - Strides Digital"
 
 RISK_ORDER = ["High Risk", "Medium Risk", "Low Risk"]
@@ -20,6 +21,9 @@ RISK_RANK_MAP = {"High Risk": 0, "Medium Risk": 1, "Low Risk": 2}
 FINAL_RISK_COL = "final_model_grp"
 ORIGINAL_RISK_COL = "model_grp_bef12"
 WEEK_COL = "weekNo"
+YEAR_COL = "yearNo"
+MONTH_COL = "monthNo"
+QUARTER_COL = "quarterNo"
 DRIVER_COL = "driverId"
 SCORE_COL = "model_risk_score"
 TASK_DAYS_COL = "task_days"
@@ -55,13 +59,13 @@ VIDEO_VIOLATIONS = [
     "Moving-Off Drill",
     "Failure to Apply Handbrake",
     "Parking Drill",
-    "Mobile Phone Usage",
+    "Mobile Phone Usage"
 ]
 EMPHASIZE_VIOLATIONS = ["Dozing Off", "Lane Changing", "Parking Drill"]
 LESS_IMPORTANT_VIOLATIONS = [v for v in VIDEO_VIOLATIONS if v not in EMPHASIZE_VIOLATIONS]
 
 
-def load_data(csv_path: Path) -> pd.DataFrame:
+def load_output_data(csv_path: Path) -> pd.DataFrame:
     if not csv_path.exists():
         raise FileNotFoundError(
             f"CSV file not found: {csv_path.resolve()}\n"
@@ -72,6 +76,9 @@ def load_data(csv_path: Path) -> pd.DataFrame:
 
     required_cols = [
         WEEK_COL,
+        YEAR_COL,
+        MONTH_COL,
+        QUARTER_COL,
         DRIVER_COL,
         FINAL_RISK_COL,
         ORIGINAL_RISK_COL,
@@ -108,9 +115,41 @@ def load_data(csv_path: Path) -> pd.DataFrame:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     df[WEEK_COL] = df[WEEK_COL].astype(str)
-    df[FINAL_RISK_COL] = normalize_risk_group(df[FINAL_RISK_COL])
-    df[ORIGINAL_RISK_COL] = normalize_risk_group(df[ORIGINAL_RISK_COL])
+    df[YEAR_COL] = df[YEAR_COL].astype(int)
+    df[MONTH_COL] = df[MONTH_COL].astype(int)
+    df[QUARTER_COL] = df[QUARTER_COL].astype(int)
+    # df[FINAL_RISK_COL] = normalize_risk_group(df[FINAL_RISK_COL])
+    # df[ORIGINAL_RISK_COL] = normalize_risk_group(df[ORIGINAL_RISK_COL])
     df[ORIGINAL_RISK_FLAG_COL] = normalize_bool(df[ORIGINAL_RISK_FLAG_COL])
+
+    return df
+
+def load_daily_count_data(csv_path: Path) -> pd.DataFrame:
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"CSV file not found: {csv_path.resolve()}\n"
+            f"Please place the file in the same folder as app.py, or update DAILY_COUNT_CSV_PATH."
+        )
+
+    df = pd.read_csv(csv_path)
+
+    required_cols = [
+        DRIVER_COL,
+        "date",
+        WEEK_COL,
+        *VIOLATION_COLS,
+        *VIDEO_VIOLATIONS,
+    ]
+    missing = [col for col in required_cols if col not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns in daily count CSV: {missing}")
+
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df[WEEK_COL] = df[WEEK_COL].astype(str)
+
+    # numeric_cols = [*VIOLATION_COLS, *VIDEO_VIOLATIONS]
+    # for col in numeric_cols:
+    #     df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     return df
 
@@ -120,23 +159,27 @@ def normalize_bool(series: pd.Series) -> pd.Series:
     return series.fillna(False).astype(str).str.strip().str.lower().isin(true_values)
 
 
-def normalize_risk_group(series: pd.Series) -> pd.Series:
-    s = series.fillna("Unknown").astype(str).str.strip()
+# def normalize_risk_group(series: pd.Series) -> pd.Series:
+#     s = series.fillna("Unknown").astype(str).str.strip()
 
-    replace_map = {
-        "High": "High Risk",
-        "Medium": "Medium Risk",
-        "Low": "Low Risk",
-        "High Risk": "High Risk",
-        "Medium Risk": "Medium Risk",
-        "Low Risk": "Low Risk",
-        "Med": "Medium Risk",
+#     replace_map = {
+#         "High": "High Risk",
+#         "Medium": "Medium Risk",
+#         "Low": "Low Risk",
+#         "High Risk": "High Risk",
+#         "Medium Risk": "Medium Risk",
+#         "Low Risk": "Low Risk",
+#         "Med": "Medium Risk",
+#     }
+#     return s.replace(replace_map)
+
+def get_period_options(df: pd.DataFrame) -> Dict[str, List[Any]]:
+    return {
+        "years": sorted(df[YEAR_COL].dropna().astype(int).unique().tolist()),
+        "quarters": sorted(df[QUARTER_COL].dropna().astype(int).unique().tolist()),
+        "months": sorted(df[MONTH_COL].dropna().astype(int).unique().tolist()),
+        "weeks": sorted(df[WEEK_COL].dropna().astype(str).unique().tolist()),
     }
-    return s.replace(replace_map)
-
-
-def get_week_options(df: pd.DataFrame) -> list[str]:
-    return sorted(df[WEEK_COL].dropna().astype(str).unique().tolist())
 
 
 def pct_str(n: int, total: int) -> str:
@@ -145,9 +188,34 @@ def pct_str(n: int, total: int) -> str:
     return f"{n / total:.1%}"
 
 
-def filter_week(df: pd.DataFrame, week_value: str) -> pd.DataFrame:
-    return df.loc[df[WEEK_COL] == str(week_value)].copy()
+def filter_by_period(
+    df: pd.DataFrame,
+    year_value: str,
+    quarter_value: str,
+    month_value: str,
+    week_value: str,
+) -> pd.DataFrame:
+    filtered = df.copy()
 
+    if year_value != "All":
+        filtered = filtered[filtered[YEAR_COL] == int(year_value)]
+
+    if quarter_value != "All":
+        filtered = filtered[filtered[QUARTER_COL] == int(quarter_value)]
+
+    if month_value != "All":
+        filtered = filtered[filtered[MONTH_COL] == int(month_value)]
+
+    if week_value != "All":
+        filtered = filtered[filtered[WEEK_COL] == str(week_value)]
+
+    return filtered
+
+# def filter_year(df: pd.DataFrame, year_value: str) -> pd.DataFrame:
+#     return df.loc[df[YEAR_COL] == str(year_value)].copy()
+
+# def filter_month(df: pd.DataFrame, year_value: str) -> pd.DataFrame:
+#     return df.loc[df[MONTH_COL] == str(year_value)].copy()
 
 def calc_risk_metrics(df_week: pd.DataFrame, risk_col: str) -> Dict[str, Any]:
     total = df_week[DRIVER_COL].nunique()
@@ -210,17 +278,28 @@ def make_avg_violation_chart(df_week: pd.DataFrame, mode: str) -> str:
 
 
 def make_importance_chart(df_week: pd.DataFrame) -> str:
+    driver_count_list = []
+    for VIO in VIDEO_VIOLATIONS:
+        driver_count_list.append(int(df_week.loc[df_week[VIO] > 0, DRIVER_COL].nunique()))
+
     chart_df = pd.DataFrame(
         {
-            "Type": ["Emphasized Violation", "Less Important Violation"],
-            "Drivers": [
-                int(df_week.loc[df_week[EMPHASIZED_COL] > 0, DRIVER_COL].nunique()),
-                int(df_week.loc[df_week[LESS_IMPORTANT_COL] > 0, DRIVER_COL].nunique()),
-            ],
+            "Type": VIDEO_VIOLATIONS,
+            "Drivers": driver_count_list
+            #[
+                # int(df_week.loc[df_week[EMPHASIZED_COL] > 0, DRIVER_COL].nunique()),
+                # int(df_week.loc[df_week[LESS_IMPORTANT_COL] > 0, DRIVER_COL].nunique()),
+            #],
         }
     )
     fig = px.bar(chart_df, x="Type", y="Drivers", text_auto=True)
-    fig.update_layout(margin=dict(l=10, r=10, t=20, b=20), height=360)
+    fig.update_layout(
+        margin=dict(l=10, r=10, t=20, b=20), 
+        height=360,
+        xaxis_title="Video Violation",
+        yaxis_title="Number of Drivers",
+        xaxis_tickangle=-35
+    )
     return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
 
 
@@ -263,41 +342,41 @@ def calc_week_comparison(df_current: pd.DataFrame, df_prev: pd.DataFrame) -> lis
     return items
 
 
-def make_score_histogram(df_week: pd.DataFrame) -> str:
-    fig = px.histogram(df_week, x=SCORE_COL, nbins=20)
-    fig.update_layout(margin=dict(l=10, r=10, t=20, b=20), height=360)
-    return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
+# def make_score_histogram(df_week: pd.DataFrame) -> str:
+#     fig = px.histogram(df_week, x=SCORE_COL, nbins=20)
+#     fig.update_layout(margin=dict(l=10, r=10, t=20, b=20), height=360)
+#     return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
 
 
-def make_tm_group_chart(df_week: pd.DataFrame, mode: str) -> str:
-    temp = df_week.copy()
-    temp[ORIGINAL_RISK_COL] = pd.Categorical(temp[ORIGINAL_RISK_COL], categories=RISK_ORDER, ordered=True)
+# def make_tm_group_chart(df_week: pd.DataFrame, mode: str) -> str:
+#     temp = df_week.copy()
+#     temp[ORIGINAL_RISK_COL] = pd.Categorical(temp[ORIGINAL_RISK_COL], categories=RISK_ORDER, ordered=True)
 
-    rows = []
-    for risk in RISK_ORDER:
-        grp = temp[temp[ORIGINAL_RISK_COL] == risk]
-        grp_task_days = grp[TASK_DAYS_COL].replace(0, np.nan)
+#     rows = []
+#     for risk in RISK_ORDER:
+#         grp = temp[temp[ORIGINAL_RISK_COL] == risk]
+#         grp_task_days = grp[TASK_DAYS_COL].replace(0, np.nan)
 
-        for col in VIOLATION_COLS:
-            if mode == "unit":
-                value = (grp[col] / grp_task_days).replace([np.inf, -np.inf], np.nan).mean()
-                measure = "Average Count / Task Days"
-            else:
-                value = grp[col].mean()
-                measure = "Average Count"
+#         for col in VIOLATION_COLS:
+#             if mode == "unit":
+#                 value = (grp[col] / grp_task_days).replace([np.inf, -np.inf], np.nan).mean()
+#                 measure = "Average Count / Task Days"
+#             else:
+#                 value = grp[col].mean()
+#                 measure = "Average Count"
 
-            rows.append(
-                {
-                    "Risk Group": risk,
-                    "Violation Type": VIOLATION_LABELS[col],
-                    measure: float(0 if pd.isna(value) else value),
-                }
-            )
+#             rows.append(
+#                 {
+#                     "Risk Group": risk,
+#                     "Violation Type": VIOLATION_LABELS[col],
+#                     measure: float(0 if pd.isna(value) else value),
+#                 }
+#             )
 
-    chart_df = pd.DataFrame(rows)
-    fig = px.bar(chart_df, x="Risk Group", y=measure, color="Violation Type", barmode="group")
-    fig.update_layout(margin=dict(l=10, r=10, t=20, b=20), height=360)
-    return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
+    # chart_df = pd.DataFrame(rows)
+    # fig = px.bar(chart_df, x="Risk Group", y=measure, color="Violation Type", barmode="group")
+    # fig.update_layout(margin=dict(l=10, r=10, t=20, b=20), height=360)
+    # return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
 
 
 def apply_risk_filters(
@@ -390,9 +469,9 @@ def format_video_breakdown_html(row: pd.Series, cols: List[str]) -> str:
     return "<br>".join(parts) if parts else "-"
 
 
-def get_driver_row(df: pd.DataFrame, driver_id: str, week: str) -> pd.Series:
-    df_week = filter_week(df, week)
-    matched = df_week[df_week[DRIVER_COL].astype(str) == str(driver_id)]
+def get_driver_row(df: pd.DataFrame, driver_id: str, period: str) -> pd.Series:
+    df_period = filter_by_period(df, period)
+    matched = df_period[df_period[DRIVER_COL].astype(str) == str(driver_id)]
     if matched.empty:
         abort(404, f"No record found for driverId={driver_id} in week={week}")
     return matched.iloc[0]
@@ -469,14 +548,18 @@ def build_telematics_improvement_table(df_week: pd.DataFrame, driver_row: pd.Ser
         metric_series = df_week.apply(lambda r: get_driver_metric_value(r, col, mode), axis=1)
         individual_val = get_driver_metric_value(driver_row, col, mode)
         mean_val = float(metric_series.mean()) if len(metric_series) else 0.0
+        p25 = float(np.percentile(metric_series, 25)) if len(metric_series) else 0.0
         p50 = float(np.percentile(metric_series, 50)) if len(metric_series) else 0.0
+        p75 = float(np.percentile(metric_series, 75)) if len(metric_series) else 0.0
 
         rows.append(
             {
                 "metric": VIOLATION_LABELS[col],
                 "individual": round(individual_val, 2),
                 "avg": round(mean_val, 2),
+                "p25": round(p25, 2),
                 "p50": round(p50, 2),
+                "p75": round(p75, 2),
                 "suggestion": get_telematics_suggestion(individual_val, mean_val, p50, mode),
             }
         )
@@ -503,26 +586,38 @@ def build_video_improvement_table(driver_row: pd.Series) -> List[Dict[str, Any]]
 
 @app.route("/")
 def home():
-    df = load_data(CSV_PATH)
-    week_options = get_week_options(df)
-    if not week_options:
+    df = load_output_data(OUTPUT_CSV_PATH)
+    period_options = get_period_options(df)
+    if not period_options:
         return "No valid weekNo found in dataset."
+    
+    selected_year = request.args.get("year", "All")
+    selected_quarter = request.args.get("quarter", "All")
+    selected_month = request.args.get("month", "All")
+    selected_week = request.args.get("week", "All")
 
-    selected_week = request.args.get("week", week_options[-1])
-    if selected_week not in week_options:
-        selected_week = week_options[-1]
+    if (
+    selected_year == "All"
+    and selected_quarter == "All"
+    and selected_month == "All"
+    and selected_week == "All"
+    ):
+        selected_week = period_options["weeks"][-1] if period_options["weeks"] else "All"
+    # selected_week = request.args.get("week", week_options[-1])
+    # if selected_week not in week_options:
+    #     selected_week = week_options[-1]
 
-    show_tm_flag = request.args.get("show_tm", "0")
-    if show_tm_flag not in {"0", "1"}:
-        show_tm_flag = "0"
+    # show_tm_flag = request.args.get("show_tm", "0")
+    # if show_tm_flag not in {"0", "1"}:
+    #     show_tm_flag = "0"
 
     avg_mode = request.args.get("avg_mode", "total")
     if avg_mode not in {"total", "unit"}:
         avg_mode = "total"
 
-    tm_mode = request.args.get("tm_mode", "total")
-    if tm_mode not in {"total", "unit"}:
-        tm_mode = "total"
+    # tm_mode = request.args.get("tm_mode", "total")
+    # if tm_mode not in {"total", "unit"}:
+    #     tm_mode = "total"
 
     final_risk_filter = request.args.get("final_risk_filter", "All")
     original_risk_filter = request.args.get("original_risk_filter", "All")
@@ -532,21 +627,27 @@ def home():
     if peer_mode not in {"total", "unit"}:
         peer_mode = "total"
 
-    df_week = filter_week(df, selected_week)
-    overview_metrics = calc_risk_metrics(df_week, FINAL_RISK_COL)
+    df_period = filter_by_period(
+        df=df,
+        year_value=selected_year,
+        quarter_value=selected_quarter,
+        month_value=selected_month,
+        week_value=selected_week,
+    )
+    overview_metrics = calc_risk_metrics(df_period, FINAL_RISK_COL)
 
-    tm_df_week = df_week[df_week[ORIGINAL_RISK_FLAG_COL] == True].copy()
-    tm_metrics = calc_risk_metrics(tm_df_week, ORIGINAL_RISK_COL)
+    # tm_df_week = df_week[df_week[ORIGINAL_RISK_FLAG_COL] == True].copy()
+    # tm_metrics = calc_risk_metrics(tm_df_week, ORIGINAL_RISK_COL)
 
-    prev_week = get_previous_week(week_options, selected_week)
+    prev_week = get_previous_week(period_options, selected_week)
     comparison_available = prev_week is not None
     comparison_items = []
     if comparison_available:
-        df_prev = filter_week(df, prev_week)
-        comparison_items = calc_week_comparison(df_week, df_prev)
+        df_prev = filter_by_period(df, prev_week)
+        comparison_items = calc_week_comparison(df_period, df_prev)
 
     filtered_risk_df = apply_risk_filters(
-        df_week=df_week,
+        df_week=df_period,
         final_risk_filter=final_risk_filter,
         original_risk_filter=original_risk_filter,
         video_filter=video_filter,
@@ -557,20 +658,20 @@ def home():
     return render_template(
         "index.html",
         app_title=APP_TITLE,
-        week_options=week_options,
+        week_options=period_options,
         selected_week=selected_week,
-        show_tm_flag=show_tm_flag,
+        # show_tm_flag=show_tm_flag,
         avg_mode=avg_mode,
-        tm_mode=tm_mode,
+        # tm_mode=tm_mode,
         overview_metrics=overview_metrics,
-        tm_metrics=tm_metrics,
-        pie_chart=make_pie_chart(df_week),
-        avg_violation_chart=make_avg_violation_chart(df_week, avg_mode),
-        importance_chart=make_importance_chart(df_week),
+        # tm_metrics=tm_metrics,
+        pie_chart=make_pie_chart(df_period),
+        avg_violation_chart=make_avg_violation_chart(df_period, avg_mode),
+        importance_chart=make_importance_chart(df_period),
         comparison_available=comparison_available,
         comparison_items=comparison_items,
-        score_histogram=make_score_histogram(tm_df_week),
-        tm_group_chart=make_tm_group_chart(tm_df_week, tm_mode),
+        # score_histogram=make_score_histogram(tm_df_week),
+        # tm_group_chart=make_tm_group_chart(tm_df_week, tm_mode),
         final_risk_filter=final_risk_filter,
         original_risk_filter=original_risk_filter,
         video_filter=video_filter,
@@ -583,20 +684,37 @@ def home():
 
 @app.route("/driver/<driver_id>")
 def driver_report(driver_id: str):
-    df = load_data(CSV_PATH)
-    week_options = get_week_options(df)
-    if not week_options:
-        abort(404, "No valid weeks found.")
+    df = load_output_data(OUTPUT_CSV_PATH)
+    period_options = get_period_options(df)
+    if not period_options:
+        return "No valid weekNo found in dataset."
+    
+    selected_year = request.args.get("year", "All")
+    selected_quarter = request.args.get("quarter", "All")
+    selected_month = request.args.get("month", "All")
+    selected_week = request.args.get("week", "All")
 
-    selected_week = request.args.get("week", week_options[-1])
-    if selected_week not in week_options:
-        selected_week = week_options[-1]
+    if (
+    selected_year == "All"
+    and selected_quarter == "All"
+    and selected_month == "All"
+    and selected_week == "All"
+    ):
+        selected_week = period_options["weeks"][-1] if period_options["weeks"] else "All"
 
     peer_mode = request.args.get("peer_mode", "total")
     if peer_mode not in {"total", "unit"}:
         peer_mode = "total"
 
-    df_week = filter_week(df, selected_week)
+    df_period = filter_by_period(
+        df=df,
+        year_value=selected_year,
+        quarter_value=selected_quarter,
+        month_value=selected_month,
+        week_value=selected_week
+    )
+    
+    # df_week = filter_by_period(df, selected_week)
     driver_row = get_driver_row(df, driver_id, selected_week)
 
     telematics_total = int(sum(driver_row.get(col, 0) for col in VIOLATION_COLS))
@@ -619,10 +737,10 @@ def driver_report(driver_id: str):
         "task_days": round(task_days, 2),
         "telematics_score": round(float(driver_row.get(SCORE_COL, 0)), 2),
         "telematics_group": driver_row.get(ORIGINAL_RISK_COL, "-"),
-        "emphasized_count": int(driver_row.get(EMPHASIZED_COL, 0)),
-        "emphasized_breakdown": format_video_breakdown_html(driver_row, EMPHASIZE_VIOLATIONS),
-        "less_important_count": int(driver_row.get(LESS_IMPORTANT_COL, 0)),
-        "less_important_breakdown": format_video_breakdown_html(driver_row, LESS_IMPORTANT_VIOLATIONS),
+        "video_violation_count": video_total,
+        "video_breakdown": format_video_breakdown_html(driver_row, VIDEO_VIOLATIONS),
+        # "less_important_count": int(driver_row.get(LESS_IMPORTANT_COL, 0)),
+        # "less_important_breakdown": format_video_breakdown_html(driver_row, LESS_IMPORTANT_VIOLATIONS),
         "final_risk_group": driver_row.get(FINAL_RISK_COL, "-"),
     }
 
